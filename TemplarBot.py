@@ -11,87 +11,57 @@ import os
 
 os.environ["SC2PATH"] = "E:\Program Files (x86)\StarCraft II"
 
-class Tree:
+class Node:
     def __init__(self, data):
         self.data = data
-        self.children = []
-        self.parent = None
-        self.level = 0
+        self.inc = []
+        self.out = []
 
-    def add_child(self, child):
-        child.parent = self
-        self.children.append(child)
-        child.level = self.level + 1
+    def connect_dir(self, inc, out):
+        if inc:
+            for node in inc:
+                if not node in self.inc:
+                    self.inc.append(node)
+                if not self in node.out:
+                    node.out.append(self)
+
+        if out:
+            for node in out:
+                if not node in self.out:
+                    self.out.append(node)
+                if not self in node.inc:
+                    node.inc.append(self)
+
+    def print_connections(self):
+        print(f"Self: {self}")
+        incStr = ""
+        for node in self.inc:
+            incStr = incStr + str(node) + ", "
+
+        print(f"Incoming nodes: {incStr}")
+
+        outStr = ""
+        for node in self.out:
+            outStr = outStr + str(node) + ", "
+
+    def get_node(self, data):
         
 
-    def print_tree(self):
-        spaces = '|' + ('-' * self.level * 3)
-        print(spaces + str(self.data))
-        if self.children:
-            for child in self.children:
-                child.print_tree()
 
-    def get_node(self, data): #Returns a TREE object, not the data
-        if self.data == data:
-            return self
-        else:
-            for child in self.children:
-                x = child.get_node(data)
-                if x:
-                    return x
+    def __str__(self):
+        return str(self.data)
 
 
 
 def build_tech_tree():
-    root = Tree("None")
+    ghost = Node(UnitTypeId.GHOST)
+    ghostAca = Node(UnitTypeId.GHOSTACADEMY)
+    techLab = Node(UnitTypeId.TECHLAB)
+    ghost.connect_dir([ghostAca, techLab], None)
+    ghostAca.connect_dir(None, [ghost])
+    techLab.connect_dir(None, [ghost])
 
-    commandCenter = Tree(UnitTypeId.COMMANDCENTER)
-    root.add_child(commandCenter)
-    engineeringBay = Tree(UnitTypeId.ENGINEERINGBAY)
-    commandCenter.add_child(engineeringBay)
-    missileTurret = Tree(UnitTypeId.MISSILETURRET)
-    engineeringBay.add_child(missileTurret)
-    sensorTower = Tree(UnitTypeId.SENSORTOWER)
-    engineeringBay.add_child(sensorTower)
-    planetary = Tree(UnitTypeId.PLANETARYFORTRESS)
-    engineeringBay.add_child(planetary)
-
-
-    refinery = Tree(UnitTypeId.REFINERY)
-    root.add_child(refinery)
-
-
-    supplyDepot = Tree(UnitTypeId.SUPPLYDEPOT)
-    root.add_child(supplyDepot)
-    barracks = Tree(UnitTypeId.BARRACKS)
-    supplyDepot.add_child(barracks)
-    marine = Tree(UnitTypeId.MARINE)
-    barracks.add_child(marine)
-    reaper = Tree(UnitTypeId.REAPER)
-    barracks.add_child(reaper)
-    marauder = Tree(UnitTypeId.MARAUDER)
-    barracks.add_child(marauder)
-
-    bunker = Tree(UnitTypeId.BUNKER)
-    barracks.add_child(bunker)
-    ghostAca = Tree(UnitTypeId.GHOSTACADEMY)
-    barracks.add_child(ghostAca)
-
-    
-    
-    factory = Tree(UnitTypeId.FACTORY)
-    barracks.add_child(factory)
-    orbital = Tree(UnitTypeId.ORBITALCOMMAND)
-    barracks.add_child(orbital)
-
-    armory = Tree(UnitTypeId.ARMORY)
-    factory.add_child(armory)
-    starport = Tree(UnitTypeId.STARPORT)
-    factory.add_child(starport)
-    fusionCore = Tree(UnitTypeId.FUSIONCORE)
-    starport.add_child(fusionCore)
-    
-    return root
+    return ghost
 
 class TemplarBot(BotAI):
     techTreeRoot = build_tech_tree()
@@ -192,16 +162,16 @@ class TemplarBot(BotAI):
         
         targetNode = self.techTreeRoot.get_node(UnitTypeId.GHOSTACADEMY)
         print(self.all_own_units(targetNode.data).amount)
-        while self.all_own_units(targetNode.data).amount == 0 and self.already_pending(targetNode.data):
-            if targetNode.parent.data == "None" or not targetNode.parent or self.all_own_units(targetNode.parent.data).amount > 0: #Check if we have the prerequisite building
-                    break
-            else: #If we dont, make that the next thing to build
-                targetNode = targetNode.parent
+        # while self.all_own_units(targetNode.data).amount == 0 and self.already_pending(targetNode.data):
+        #     if targetNode.parent.data == "None" or not targetNode.parent or self.all_own_units(targetNode.parent.data).amount > 0: #Check if we have the prerequisite building
+        #             break
+        #     else: #If we dont, make that the next thing to build
+        #         targetNode = targetNode.parent
 
-        if self.can_afford(targetNode.data) and not self.already_pending(targetNode.data):
-            await self.build(targetNode.data, near = self.townhalls[0])
-            for build in self.structures(targetNode.parent.data):
-                build.train(targetNode.data)
+        # if self.can_afford(targetNode.data) and not self.already_pending(targetNode.data):
+        #     await self.build(targetNode.data, near = self.townhalls[0])
+        #     for build in self.structures(targetNode.parent.data):
+        #         await build.train(targetNode.data)
             
 
 
@@ -214,16 +184,17 @@ map = random.choice(onlyfiles)
 map = map[:map.index('.')]
 print(map)
 
-
+root = build_tech_tree()
+root.print_connections()
 # root = build_tech_tree()
 #root.print_tree()
 
 # mNode = root.get_node(UnitTypeId.MARINE)
 # print(str(mNode.parent.data))
 
-run_game(
-    maps.get(map),
-    [Bot(Race.Terran, TemplarBot()),
-     Computer(Race.Zerg, Difficulty.Hard)],
-    realtime=False
-)
+# run_game(
+#     maps.get(map),
+#     [Bot(Race.Terran, TemplarBot()),
+#      Computer(Race.Zerg, Difficulty.Hard)],
+#     realtime=False
+# )
